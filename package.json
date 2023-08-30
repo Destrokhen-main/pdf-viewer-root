@@ -20,6 +20,10 @@
         "Destrokhen <armagiddon19@gmail.com>",
         "Yangxuy"
     ],
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/Destrokhen-main/pdf-viewer-root"
+    },
     "license": "ISC",
     "devDependencies": {
         "@babel/core": "^7.21.3",
