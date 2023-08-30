@@ -21,6 +21,7 @@ export class PdfController {
 
     constructor(
         private wrapper: HTMLElement,
+        private loading: HTMLElement,
         private onError: (e: any) => void,
         private onSuccess: (pdf: PDFDocumentProxy) => void
     ) {
@@ -100,17 +101,20 @@ export class PdfController {
     }
 
     async renderPdf(num = 0) {
+        this.loading.style.display = "block";
+        const size = this.wrapper.getBoundingClientRect();
+        if (num === 0) {
+            this.clear();
+        }
 
         while (this.pdf && this.pages && num < this.pdf.numPages) {
             const page = this.pages[num];
 
             let viewport = page.getViewport({ scale: 1 });
-
-            const size = this.wrapper.getBoundingClientRect();
             const rate = size.width / viewport.width * this.scale;
 
-            let canvas = document.createElement("canvas");
-            let context = canvas.getContext("2d");
+            const canvas = document.createElement("canvas");
+            const context = canvas.getContext("2d");
 
             canvas.width = Math.floor(viewport.width * rate);
             canvas.height = Math.floor(viewport.height * rate);
@@ -123,28 +127,26 @@ export class PdfController {
 
             await page.render(renderContext).promise;
 
-            if (num === 0) {
-                this.clear();
-            }
-
             this.wrapper.appendChild(canvas);
-
             num++;
         }
+        this.loading.style.display = "none";
         this.preFrame = undefined;
     }
 
     async renderPerPagePdf(num = 0) {
+        const size = this.wrapper.getBoundingClientRect();
+
+        this.loading.style.display = "block";
         if (this.pdf && this.pages && num < this.pdf.numPages) {
             const page = this.pages[num];
 
-            let viewport = page.getViewport({ scale: 1 });
+            const viewport = page.getViewport({ scale: 1 });
 
-            const size = this.wrapper.getBoundingClientRect();
             const rate = size.width / viewport.width * this.scale;
 
-            let canvas = document.createElement("canvas");
-            let context = canvas.getContext("2d");
+            const canvas = document.createElement("canvas");
+            const context = canvas.getContext("2d");
 
             canvas.width = Math.floor(viewport.width * rate);
             canvas.height = Math.floor(viewport.height * rate);
@@ -158,7 +160,7 @@ export class PdfController {
             await page.render(renderContext).promise;
 
             this.clear();
-
+            this.loading.style.display = "none";
             this.wrapper.appendChild(canvas);
         }
         this.preFrame = undefined;
@@ -197,5 +199,6 @@ export class PdfController {
 
     clear() {
         this.wrapper.innerHTML = "";
+        this.wrapper.append(this.loading);
     }
 }

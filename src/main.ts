@@ -15,8 +15,12 @@ class PdfView extends HTMLElement {
 
         const shadow = this.attachShadow({ mode: "open" });
 
+        const loader = document.createElement("div");
+        loader.classList.add('loader-wrapper');
+
         this.wrapper = document.createElement("div");
         this.wrapper.classList.add("pdf-wrapper")
+        this.wrapper.appendChild(loader);
         
         const style = document.createElement("style");
 
@@ -27,6 +31,30 @@ class PdfView extends HTMLElement {
                 justify-content: center;
                 align-items: center;
                 gap: 10px;
+                position: relative;
+            }
+
+            .loader-wrapper {
+                display: flex;
+                justify-content: center;
+                align-items:center;
+                height: 100%;
+                animation: 3s infinite linear loading;
+                opacity: 0.8;
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+            }
+
+            @keyframes loading {
+                0%, 100% {
+                    background-color:#fbfbfb
+                }
+                50% {
+                    background-color:#c9c9c9
+                }
             }
         `
         shadow.appendChild(style);
@@ -34,6 +62,7 @@ class PdfView extends HTMLElement {
 
         this.controller = new PdfController(
             this.wrapper,
+            loader,
             (e) => this.onError(e),
             (pdf) => this.onSuccess(pdf)
         );
