@@ -1,6 +1,6 @@
 {
     "name": "pdf-viewer-root",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "description": "a pdf reader can use for react or vue",
     "main": "dist/main.bundle.js",
     "files": [
