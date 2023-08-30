@@ -12,10 +12,12 @@ const global: any = window;
 export class PdfController {
     private pdfBuffer?: ArrayBuffer;
     public pdfBlob?: Blob;
-    private pdf?: PDFDocumentProxy;
+    public pdf?: PDFDocumentProxy;
     private url?: string;
     private pages?: PDFPageProxy[];
     private preFrame?: number;
+    private showAll: boolean = false;
+    private scale = 1;
 
     constructor(
         private wrapper: HTMLElement,
@@ -72,7 +74,12 @@ export class PdfController {
         await Promise.all(promises)
             .then((pages: any[]) => {
                 this.pages = pages;
-                this.renderPdf();
+                if (this.showAll === true) {
+                    this.renderPdf();
+                } else {
+                    this.renderPerPagePdf();
+                }
+                
             })
             .catch((err) => {
                 this.onError(err);
@@ -82,21 +89,25 @@ export class PdfController {
     async schedular(frameId?: number) {
         if (this.preFrame === undefined) {
             this.preFrame = frameId;
-            await this.renderPdf();
+            if (this.showAll === true) {
+                await this.renderPdf();
+            } else {
+                await this.renderPerPagePdf();
+            }
         } else {
             this.preFrame = frameId;
         }
     }
 
     async renderPdf(num = 0) {
+
         while (this.pdf && this.pages && num < this.pdf.numPages) {
-            console.log(this.pages);
             const page = this.pages[num];
 
             let viewport = page.getViewport({ scale: 1 });
 
             const size = this.wrapper.getBoundingClientRect();
-            const rate = size.width / viewport.width;
+            const rate = size.width / viewport.width * this.scale;
 
             let canvas = document.createElement("canvas");
             let context = canvas.getContext("2d");
@@ -121,6 +132,69 @@ export class PdfController {
             num++;
         }
         this.preFrame = undefined;
+    }
+
+    async renderPerPagePdf(num = 0) {
+        if (this.pdf && this.pages && num < this.pdf.numPages) {
+            const page = this.pages[num];
+
+            let viewport = page.getViewport({ scale: 1 });
+
+            console.log(viewport);
+
+            const size = this.wrapper.getBoundingClientRect();
+            const rate = size.width / viewport.width * this.scale;
+
+            let canvas = document.createElement("canvas");
+            let context = canvas.getContext("2d");
+
+            canvas.width = Math.floor(viewport.width * rate);
+            canvas.height = Math.floor(viewport.height * rate);
+
+            let renderContext = {
+                transform: [rate, 0, 0, rate, 0, 0],
+                canvasContext: context!,
+                viewport: viewport,
+            };
+
+            await page.render(renderContext).promise;
+
+            this.clear();
+
+            this.wrapper.appendChild(canvas);
+        }
+        this.preFrame = undefined;
+    }
+
+    // 1 - show by page
+    // 2 - show all
+    changeMod(mode: number, page: number = -1) {
+        if (mode === 1 && this.showAll === true) {
+            this.showAll = false;
+            if (page !== -1) {
+                this.renderPerPagePdf(page);
+            } else {
+                this.renderPerPagePdf();
+            }
+        } else if (mode === 2 && this.showAll === false) {
+            this.showAll = true;
+            this.renderPdf();
+        }
+    }
+
+    changeScale(percent: number, page = -1) {
+        this.scale = percent / 100;
+
+        if (this.showAll === true) {
+            this.renderPdf();
+        } else {
+            if (page !== -1) {
+                this.renderPerPagePdf(page);
+            } else {
+                this.renderPerPagePdf();
+            }
+            
+        }
     }
 
     clear() {

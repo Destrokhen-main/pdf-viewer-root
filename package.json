@@ -1,21 +1,25 @@
 {
-    "name": "@yangxuy/pdf-reader",
-    "version": "1.0.7-alpha-0",
+    "name": "pdf-viewer-root",
+    "version": "1.0.0",
     "description": "a pdf reader can use for react or vue",
     "main": "dist/main.bundle.js",
     "files": [
         "dist"
     ],
     "scripts": {
-        "test": "vitest",
         "build": "rm -rf dist && webpack"
     },
-    "repository": {
-        "type": "git",
-        "url": "git@github.com:yangxuy/pdf-reader.git"
-    },
-    "homepage": "https://www.jianshu.com/p/008bea4eecf9",
-    "author": "yangxuy",
+    "keywords": [
+        "shadow-root",
+        "vue",
+        "react",
+        "angular"
+    ],
+    "author": "yangxuy, Destrokhen",
+    "contributors": [
+        "Destrokhen <armagiddon19@gmail.com>",
+        "Yangxuy"
+    ],
     "license": "ISC",
     "devDependencies": {
         "@babel/core": "^7.21.3",
@@ -23,8 +27,11 @@
         "pdfjs-dist": "3.4.120",
         "ts-loader": "^9.4.2",
         "typescript": "^5.0.2",
-        "vitest": "^0.29.7",
         "webpack": "^5.76.3",
-        "webpack-cli": "^5.0.1"
+        "webpack-cli": "^5.1.4"
+    },
+    "volta": {
+        "node": "18.16.1",
+        "yarn": "1.22.19"
     }
 }

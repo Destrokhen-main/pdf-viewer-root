@@ -6,6 +6,9 @@ class PdfView extends HTMLElement {
     public controller?: PdfController;
     private wrapper: HTMLElement;
     private frameId?: number;
+    private pageUser: number = 0;
+
+    private deb: null | ReturnType<typeof setTimeout> = null;
 
     constructor() {
         super();
@@ -13,7 +16,20 @@ class PdfView extends HTMLElement {
         const shadow = this.attachShadow({ mode: "open" });
 
         this.wrapper = document.createElement("div");
+        this.wrapper.classList.add("pdf-wrapper")
+        
+        const style = document.createElement("style");
 
+        style.innerHTML = ` 
+            .pdf-wrapper {
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+                gap: 10px;
+            }
+        `
+        shadow.appendChild(style);
         shadow.appendChild(this.wrapper);
 
         this.controller = new PdfController(
@@ -51,11 +67,30 @@ class PdfView extends HTMLElement {
     }
 
     static get observedAttributes() {
-        return ["url"];
+        return ["url", "page", "mode", "scale"];
     }
 
     attributeChangedCallback(name: string, oldValue: string, newValue: string) {
-        this.controller?.init(newValue);
+        if (name === "url") {
+            this.controller?.init(newValue);
+        }
+
+        if (name === "mode" && this.controller !== undefined) {
+            this.controller.changeMod(parseInt(newValue, 10), this.pageUser !== 0 ? this.pageUser : -1);
+        }
+
+        if (name === "page" && this.controller !== undefined && newValue !== oldValue) {
+            if (this.deb !== null) clearTimeout(this.deb); 
+
+            this.deb = setTimeout(() => {
+                this.changePage(parseInt(newValue, 10))
+                this.pageUser = parseInt(newValue, 10) - 1;
+            }, 200)
+        }
+
+        if (name === "scale" && this.controller !== undefined && newValue !== oldValue) {
+            this.controller.changeScale(parseInt(newValue), this.pageUser !== 0 ? this.pageUser : -1);
+        }
     }
 
     downLoad() {
@@ -65,11 +100,22 @@ class PdfView extends HTMLElement {
             a.href = url;
 
             a.download =
-                this.getAttribute("fileName") ?? "请设置标签的fileName";
+                this.getAttribute("fileName") ?? "fileName";
             a.click();
             window.URL.revokeObjectURL(url);
         }
     }
+
+    changePage(page: number) {
+        // page in pdf start on 0
+        this.controller!.renderPerPagePdf(page - 1)
+    }
+
+    changeMod(mode: number) {
+        if (this.controller !== undefined) {
+            this.controller.changeMod(mode);
+        }
+    }
 }
 
-customElements.define("pdf-view", PdfView);
+customElements.define("pdf-viewer-root", PdfView);

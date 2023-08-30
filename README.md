@@ -1,45 +1,36 @@
-## pdf-reader
-使用pdfjs-dist解析pdf文件
-使用web component方式构建，这种方式可以兼容当前各种框架
+## pdf-viewer-root
 
-### 使用
-- 支持原生html使用
-- 支持vue/react/angular 
+This library is based on <a href="https://www.npmjs.com/package/@yangxuy/pdf-reader">@yangxuy/pdf-reader</a> but has some new features
 
-### html
-```html
-<!DOCTYPE html>
-<html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Document</title>
-        <script src="/dist/main.bundle.js" defer></script>
-    </head>
-    <body>
-        <pdf-view
-            url="/demo/1.pdf"
-            style="width: 100%; height: 800px"
-        ></pdf-view>
-    </body>
-</html>
+### Setup:
+
+```
+yarn add pdf-viewer-root
 ```
 
-### vue
-```vue
-<script setup>
-import "@yangxuy/pdf-reader"
-import pdf from './assets/1.pdf'
-</script>
+```
+npm i pdf-viewer-root
+```
+
+### Usage
+
+vue 2 / 3:
+
+```
 
 <template>
-  <pdf-view :url="pdf" style="width: 100%; height: 800px"></pdf-view>
+<pdf-viewer-root :url="url" />
 </template>
+
+<script>
+import "pdf-viewer-root"
+</script>
+
 ```
 
-### React
-```js
+react:
+
+```
 import pdf from "./assets/1.pdf";
 import "@yangxuy/pdf-reader";
 import { useRef } from "react";
@@ -58,5 +49,14 @@ function App() {
 export default App;
 ```
 
-### 还未开发的能力
-- 错误事件处理
+
+### component attributes
+
+| attr      | description                                                   | default | Type   |
+|-----------|---------------------------------------------------------------|---------|--------|
+| url       | Link to the file (you can send a blob)                        |         | string |
+| page      | Page number, from 1 to infinity                               | 1       | number |
+| mode      | Display mode if 1 shows by page. If 2 shows all pages at once | 1       | number |
+| scale     | pdf size on screen. from 10 to 100                            | 100     | number |
+| onSuccess | When the pdf is loaded, this event will be called             | -       | -      |
+| onError   | When the pdf gives an error, this event will be called        | -       | -      |

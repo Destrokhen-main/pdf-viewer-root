@@ -6,15 +6,21 @@ export declare class PdfController {
     private onSuccess;
     private pdfBuffer?;
     pdfBlob?: Blob;
-    private pdf?;
+    pdf?: PDFDocumentProxy;
     private url?;
     private pages?;
     private preFrame?;
+    private showAll;
+    private scale;
     constructor(wrapper: HTMLElement, onError: (e: any) => void, onSuccess: (pdf: PDFDocumentProxy) => void);
     init(url: string): Promise<void>;
+    fetchData(): Promise<void>;
     fetchPdf(): Promise<void>;
     initPages(): Promise<void>;
     schedular(frameId?: number): Promise<void>;
     renderPdf(num?: number): Promise<void>;
+    renderPerPagePdf(num?: number): Promise<void>;
+    changeMod(mode: number, page?: number): void;
+    changeScale(percent: number, page?: number): void;
     clear(): void;
 }
