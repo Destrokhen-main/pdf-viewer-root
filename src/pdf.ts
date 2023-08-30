@@ -140,8 +140,6 @@ export class PdfController {
 
             let viewport = page.getViewport({ scale: 1 });
 
-            console.log(viewport);
-
             const size = this.wrapper.getBoundingClientRect();
             const rate = size.width / viewport.width * this.scale;
 
