@@ -14,10 +14,10 @@ export class PdfController {
     public pdfBlob?: Blob;
     public pdf?: PDFDocumentProxy;
     private url?: string;
-    private pages?: PDFPageProxy[];
     private preFrame?: number;
     private showAll: boolean = false;
     private scale = 1;
+    public dpi = 300;
 
     constructor(
         private wrapper: HTMLElement,
@@ -66,25 +66,11 @@ export class PdfController {
     }
 
     async initPages() {
-        const numbers = this.pdf!.numPages;
-
-        const promises = [...Array(numbers)].map((_, index) => {
-            return this.pdf?.getPage(index + 1);
-        });
-
-        await Promise.all(promises)
-            .then((pages: any[]) => {
-                this.pages = pages;
-                if (this.showAll === true) {
-                    this.renderPdf();
-                } else {
-                    this.renderPerPagePdf();
-                }
-                
-            })
-            .catch((err) => {
-                this.onError(err);
-            });
+        if (this.showAll === true) {
+            this.renderPdf();
+        } else {
+            this.renderPerPagePdf();
+        }
     }
 
     async schedular(frameId?: number) {
@@ -100,71 +86,138 @@ export class PdfController {
         }
     }
 
-    async renderPdf(num = 0) {
-        this.loading.style.display = "block";
-        const size = this.wrapper.getBoundingClientRect();
-        if (num === 0) {
-            this.clear();
+    async renderPdf(num = 1) {
+        this.loading.style.display = "flex";
+
+        const printUnits = this.dpi / 72
+        const styleUnits = 96 / 72
+
+        const allPages = new Array(this.pdf?.numPages).fill(0);
+
+        if (this.pdf !== undefined) {
+            if (num === 1) {
+                this.clear();
+            }
+
+            const iframe: any = await this.createPrintIframe(this.wrapper);
+
+            await Promise.all(
+                allPages.map(async (_, index) => {
+                    const page = await this.pdf!.getPage(index + 1);
+                    const viewport = page.getViewport({ scale: 1, rotation: 0 });
+
+                    if (index === 0) {
+                        const sizeX = (viewport.width * printUnits) / styleUnits
+                        const sizeY = (viewport.height * printUnits) / styleUnits
+
+                        this.addPrintStyles(iframe, sizeX, sizeY)
+                    }
+
+                    const canvas = document.createElement("canvas");
+                    const context = canvas.getContext("2d");
+
+                    canvas.width = Math.floor(viewport.width * printUnits);
+                    canvas.height = Math.floor(viewport.height * printUnits);
+
+                    const canvasClone: any = canvas.cloneNode();
+
+                    canvasClone.style.marginBottom = "10px";
+
+                    iframe.contentWindow.document.body.appendChild(canvasClone)
+
+                    let renderContext = {
+                        transform: [printUnits, 0, 0, printUnits, 0, 0],
+                        canvasContext: context!,
+                        intent: 'print',
+                        viewport: viewport,
+                    };
+
+                    await page.render(renderContext).promise;
+
+                    this.loading.style.display = "none";
+                    canvasClone.getContext('2d').drawImage(canvas, 0, 0)
+                })
+            )
         }
-
-        while (this.pdf && this.pages && num < this.pdf.numPages) {
-            const page = this.pages[num];
-
-            let viewport = page.getViewport({ scale: 1 });
-            const rate = size.width / viewport.width * this.scale;
-
-            const canvas = document.createElement("canvas");
-            const context = canvas.getContext("2d");
-
-            canvas.width = Math.floor(viewport.width * rate);
-            canvas.height = Math.floor(viewport.height * rate);
-
-            let renderContext = {
-                transform: [rate, 0, 0, rate, 0, 0],
-                canvasContext: context!,
-                viewport: viewport,
-            };
-
-            await page.render(renderContext).promise;
-
-            this.wrapper.appendChild(canvas);
-            num++;
-        }
-        this.loading.style.display = "none";
-        this.preFrame = undefined;
     }
 
-    async renderPerPagePdf(num = 0) {
-        const size = this.wrapper.getBoundingClientRect();
+    async renderPerPagePdf(num = 1) {
 
-        this.loading.style.display = "block";
-        if (this.pdf && this.pages && num < this.pdf.numPages) {
-            const page = this.pages[num];
+        const printUnits = this.dpi / 72
+        const styleUnits = 96 / 72
 
-            const viewport = page.getViewport({ scale: 1 });
+        this.loading.style.display = "flex";
+        if (this.pdf && num <= this.pdf.numPages) {
+            const page = await this.pdf.getPage(num);
+            this.clear();
+            const viewport = page.getViewport({ scale: 1, rotation: 0 });
 
-            const rate = size.width / viewport.width * this.scale;
+            const iframe: any = await this.createPrintIframe(this.wrapper);
+
+            const sizeX = (viewport.width * printUnits) / styleUnits
+            const sizeY = (viewport.height * printUnits) / styleUnits
+
+            this.addPrintStyles(iframe, sizeX, sizeY)
 
             const canvas = document.createElement("canvas");
             const context = canvas.getContext("2d");
 
-            canvas.width = Math.floor(viewport.width * rate);
-            canvas.height = Math.floor(viewport.height * rate);
+            canvas.width = Math.floor(viewport.width * printUnits);
+            canvas.height = Math.floor(viewport.height * printUnits);
+
+            const canvasClone: any = canvas.cloneNode();
+
+            iframe.contentWindow.document.body.appendChild(canvasClone)
 
             let renderContext = {
-                transform: [rate, 0, 0, rate, 0, 0],
+                transform: [printUnits, 0, 0, printUnits, 0, 0],
                 canvasContext: context!,
+                intent: 'print',
                 viewport: viewport,
             };
 
             await page.render(renderContext).promise;
 
-            this.clear();
             this.loading.style.display = "none";
-            this.wrapper.appendChild(canvas);
+            canvasClone.getContext('2d').drawImage(canvas, 0, 0)
         }
         this.preFrame = undefined;
     }
+
+    addPrintStyles(iframe: any, sizeX: any, sizeY: any) {
+        const style = iframe.contentWindow.document.createElement('style')
+        style.textContent = `
+          @page {
+            margin: 0;
+            size: ${sizeX}pt ${sizeY}pt;
+          }
+          body {
+            margin: 0;
+          }
+          canvas {
+            width: 100%;
+            page-break-after: always;
+            page-break-before: avoid;
+            page-break-inside: avoid;
+          }
+        `
+        iframe.contentWindow.document.head.appendChild(style)
+        iframe.contentWindow.document.body.style.width = '100%'
+      }
+
+    createPrintIframe(node: HTMLElement) {
+        return new Promise((resolve) => {
+          const iframe = document.createElement('iframe')
+          iframe.style.width = '100%'
+          iframe.style.flex = '1';
+          iframe.style.border = 'none'
+          iframe.style.overflow = 'hidden'
+          iframe.onload = function() {
+            resolve(iframe)
+          }
+          node.appendChild(iframe);
+        })
+      }
 
     // 1 - show by page
     // 2 - show all
@@ -200,5 +253,14 @@ export class PdfController {
     clear() {
         this.wrapper.innerHTML = "";
         this.wrapper.append(this.loading);
+    }
+
+
+    rerender(num = 1) {
+        if (this.showAll === true) {
+            this.renderPdf(num);
+        } else {
+            this.renderPerPagePdf(num);
+        }
     }
 }

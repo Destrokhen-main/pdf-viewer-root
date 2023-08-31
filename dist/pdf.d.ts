@@ -9,10 +9,10 @@ export declare class PdfController {
     pdfBlob?: Blob;
     pdf?: PDFDocumentProxy;
     private url?;
-    private pages?;
     private preFrame?;
     private showAll;
     private scale;
+    dpi: number;
     constructor(wrapper: HTMLElement, loading: HTMLElement, onError: (e: any) => void, onSuccess: (pdf: PDFDocumentProxy) => void);
     init(url: string): Promise<void>;
     fetchData(): Promise<void>;
@@ -21,7 +21,10 @@ export declare class PdfController {
     schedular(frameId?: number): Promise<void>;
     renderPdf(num?: number): Promise<void>;
     renderPerPagePdf(num?: number): Promise<void>;
+    addPrintStyles(iframe: any, sizeX: any, sizeY: any): void;
+    createPrintIframe(node: HTMLElement): Promise<unknown>;
     changeMod(mode: number, page?: number): void;
     changeScale(percent: number, page?: number): void;
     clear(): void;
+    rerender(num?: number): void;
 }

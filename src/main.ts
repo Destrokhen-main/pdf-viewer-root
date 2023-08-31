@@ -17,6 +17,9 @@ class PdfView extends HTMLElement {
 
         const loader = document.createElement("div");
         loader.classList.add('loader-wrapper');
+        const el = document.createElement('div');
+        el.innerText = "loading..."
+        loader.appendChild(el)
 
         this.wrapper = document.createElement("div");
         this.wrapper.classList.add("pdf-wrapper")
@@ -32,6 +35,8 @@ class PdfView extends HTMLElement {
                 align-items: center;
                 gap: 10px;
                 position: relative;
+                height: 100%;
+                overflow: auto;
             }
 
             .loader-wrapper {
@@ -96,7 +101,7 @@ class PdfView extends HTMLElement {
     }
 
     static get observedAttributes() {
-        return ["url", "page", "mode", "scale"];
+        return ["url", "page", "mode", "scale", "dpi"];
     }
 
     attributeChangedCallback(name: string, oldValue: string, newValue: string) {
@@ -113,13 +118,18 @@ class PdfView extends HTMLElement {
 
             this.deb = setTimeout(() => {
                 this.changePage(parseInt(newValue, 10))
-                this.pageUser = parseInt(newValue, 10) - 1;
+                this.pageUser = parseInt(newValue, 10);
             }, 200)
         }
 
-        if (name === "scale" && this.controller !== undefined && newValue !== oldValue) {
-            this.controller.changeScale(parseInt(newValue), this.pageUser !== 0 ? this.pageUser : -1);
+        if (name === "dpi" && this.controller !== undefined && newValue !== oldValue) {
+            this.controller.dpi = parseInt(newValue, 10);
+            this.controller.rerender(this.pageUser !== 1 ? this.pageUser : 1);
         }
+
+        // if (name === "scale" && this.controller !== undefined && newValue !== oldValue) {
+        //     this.controller.changeScale(parseInt(newValue), this.pageUser !== 0 ? this.pageUser : -1);
+        // }
     }
 
     downLoad() {
@@ -136,8 +146,7 @@ class PdfView extends HTMLElement {
     }
 
     changePage(page: number) {
-        // page in pdf start on 0
-        this.controller!.renderPerPagePdf(page - 1)
+        this.controller!.renderPerPagePdf(page)
     }
 
     changeMod(mode: number) {
