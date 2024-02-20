@@ -4,7 +4,6 @@ import "pdfjs-dist/legacy/build/pdf.worker.entry.js";
 
 import {
     PDFDocumentProxy,
-    PDFPageProxy,
 } from "pdfjs-dist/types/src/display/api";
 
 const global: any = window;
@@ -15,22 +14,35 @@ export class PdfController {
     public pdf?: PDFDocumentProxy;
     private url?: string;
     private preFrame?: number;
-    private showAll: boolean = false;
+    public showAll: boolean = false;
     private scale = 1;
     public dpi = 300;
+
+    private mainFrameElement: any = null;
+
+    public firstPage = 1;
+
+    private deb: any = null;
 
     constructor(
         private wrapper: HTMLElement,
         private loading: HTMLElement,
         private onError: (e: any) => void,
-        private onSuccess: (pdf: PDFDocumentProxy) => void
+        private onSuccess: (pdf: PDFDocumentProxy) => void,
+        private logger: (...args: string[]) => void
     ) {
         pdfjsLib.GlobalWorkerOptions.workerSrc = global.pdfjsWorker;
     }
 
-    async init(url: string) {
-        this.url = url;
-        await this.fetchData();
+    init(url: string) {
+        this.deb && clearTimeout(this.deb)
+        this.deb = setTimeout(() => {
+            if (this.url !== url) {
+                this.url = url;
+                this.clear();
+                this.fetchData();
+            }
+        }, 200)
     }
 
     async fetchData() {
@@ -44,42 +56,40 @@ export class PdfController {
         }
     }
 
-    async fetchPdf() {
+    fetchPdf() {
         const pdfDocConfig: Record<string, any> = {
             cMapPacked: true,
-            rangeChunkSize: 65536,
-            pdfBug: false,
-            useSystemFonts: true,
             data: this.pdfBuffer,
+            cMapUrl: 'https://unpkg.com/browse/pdfjs-dist@2.2.228/cmaps/',
         };
 
         pdfjsLib
             .getDocument(pdfDocConfig)
-            .promise.then(async (pdf) => {
+            .promise.then((pdf) => {
                 this.pdf = pdf;
                 this.onSuccess(pdf);
-                await this.initPages();
+                this.initPages();
             })
             .catch((e) => {
                 this.onError(e);
             });
     }
 
-    async initPages() {
+    initPages() {
         if (this.showAll === true) {
             this.renderPdf();
         } else {
-            this.renderPerPagePdf();
+            this.renderPerPagePdf(this.firstPage);
         }
     }
 
-    async schedular(frameId?: number) {
+    schedular(frameId?: number) {
         if (this.preFrame === undefined) {
             this.preFrame = frameId;
             if (this.showAll === true) {
-                await this.renderPdf();
+                this.renderPdf();
             } else {
-                await this.renderPerPagePdf();
+                this.renderPerPagePdf();
             }
         } else {
             this.preFrame = frameId;
@@ -91,9 +101,7 @@ export class PdfController {
 
         const printUnits = this.dpi / 72
         const styleUnits = 96 / 72
-
-        const allPages = new Array(this.pdf?.numPages).fill(0);
-
+        this.logger('Render all page')
         if (this.pdf !== undefined) {
             if (num === 1) {
                 this.clear();
@@ -101,59 +109,67 @@ export class PdfController {
 
             const iframe: any = await this.createPrintIframe(this.wrapper);
 
-            await Promise.all(
-                allPages.map(async (_, index) => {
-                    const page = await this.pdf!.getPage(index + 1);
-                    const viewport = page.getViewport({ scale: 1, rotation: 0 });
+            let viewport: any;
 
-                    if (index === 0) {
-                        const sizeX = (viewport.width * printUnits) / styleUnits
-                        const sizeY = (viewport.height * printUnits) / styleUnits
+            let _width, _height;
+            for (let i = 0; i !== this.pdf?.numPages; i++) {
+                const page = await this.pdf!.getPage(i + 1);
 
-                        this.addPrintStyles(iframe, sizeX, sizeY)
-                    }
+                if (i === 0) {
+                    viewport = page.getViewport({ scale: 1, rotation: 0 });
+                    const sizeX = (viewport.width * printUnits) / styleUnits
+                    const sizeY = (viewport.height * printUnits) / styleUnits
 
-                    const canvas = document.createElement("canvas");
-                    const context = canvas.getContext("2d");
+                    _width = Math.floor(viewport.width * printUnits)
+                    _height = Math.floor(viewport.height * printUnits)
 
-                    canvas.width = Math.floor(viewport.width * printUnits);
-                    canvas.height = Math.floor(viewport.height * printUnits);
+                    this.addPrintStyles(iframe, sizeX, sizeY)
+                }
 
-                    const canvasClone: any = canvas.cloneNode();
+                const canvas = document.createElement("canvas");
+                const context = canvas.getContext("2d");
 
-                    canvasClone.style.marginBottom = "10px";
+                canvas.width = _width!;
+                canvas.height = _height!;
 
-                    iframe.contentWindow.document.body.appendChild(canvasClone)
+                const canvasClone: any = canvas.cloneNode();
 
-                    let renderContext = {
-                        transform: [printUnits, 0, 0, printUnits, 0, 0],
-                        canvasContext: context!,
-                        intent: 'print',
-                        viewport: viewport,
-                    };
+                canvasClone.style.marginBottom = "10px";
 
-                    await page.render(renderContext).promise;
+                const renderContext = {
+                    transform: [printUnits, 0, 0, printUnits, 0, 0],
+                    canvasContext: context!,
+                    intent: 'print',
+                    viewport: viewport,
+                };
 
+                await page.render(renderContext).promise;
+
+                canvasClone.getContext('2d').drawImage(canvas, 0, 0)
+                iframe.contentWindow.document.body.appendChild(canvasClone)
+
+                if (i === 0) {
                     this.loading.style.display = "none";
-                    canvasClone.getContext('2d').drawImage(canvas, 0, 0)
-                })
-            )
+                }
+            }
+        } else {
+            this.onError("Ошибка, отсутствует pdf")
         }
+        this.preFrame = undefined;
     }
 
     async renderPerPagePdf(num = 1) {
-
         const printUnits = this.dpi / 72
         const styleUnits = 96 / 72
 
         this.loading.style.display = "flex";
+        this.logger("Render page", num.toString())
         if (this.pdf && num <= this.pdf.numPages) {
             const page = await this.pdf.getPage(num);
             this.clear();
             const viewport = page.getViewport({ scale: 1, rotation: 0 });
 
             const iframe: any = await this.createPrintIframe(this.wrapper);
-
             const sizeX = (viewport.width * printUnits) / styleUnits
             const sizeY = (viewport.height * printUnits) / styleUnits
 
@@ -178,8 +194,10 @@ export class PdfController {
 
             await page.render(renderContext).promise;
 
-            this.loading.style.display = "none";
             canvasClone.getContext('2d').drawImage(canvas, 0, 0)
+            this.loading.style.display = "none";
+        } else {
+            this.onError("Ошибка, отсутствует pdf")
         }
         this.preFrame = undefined;
     }
@@ -203,21 +221,21 @@ export class PdfController {
         `
         iframe.contentWindow.document.head.appendChild(style)
         iframe.contentWindow.document.body.style.width = '100%'
-      }
+    }
 
     createPrintIframe(node: HTMLElement) {
         return new Promise((resolve) => {
-          const iframe = document.createElement('iframe')
-          iframe.style.width = '100%'
-          iframe.style.flex = '1';
-          iframe.style.border = 'none'
-          iframe.style.overflow = 'hidden'
-          iframe.onload = function() {
-            resolve(iframe)
-          }
-          node.appendChild(iframe);
+            const iframe = document.createElement('iframe')
+            iframe.style.width = '100%'
+            iframe.style.flex = '1';
+            iframe.style.border = 'none'
+            iframe.style.overflow = 'hidden'
+            iframe.onload = function() {
+                resolve(iframe)
+            }
+            node.appendChild(iframe);
         })
-      }
+    }
 
     // 1 - show by page
     // 2 - show all
@@ -235,26 +253,14 @@ export class PdfController {
         }
     }
 
-    changeScale(percent: number, page = -1) {
-        this.scale = percent / 100;
-
-        if (this.showAll === true) {
-            this.renderPdf();
-        } else {
-            if (page !== -1) {
-                this.renderPerPagePdf(page);
-            } else {
-                this.renderPerPagePdf();
-            }
-            
-        }
-    }
-
     clear() {
         this.wrapper.innerHTML = "";
         this.wrapper.append(this.loading);
     }
 
+    abort() {
+        this.deb && clearTimeout(this.deb)
+    }
 
     rerender(num = 1) {
         if (this.showAll === true) {
